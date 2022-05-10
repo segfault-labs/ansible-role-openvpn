@@ -1,0 +1,6 @@
+{% for client_net in item.networks %}
+{% for network in openvpn_networks[client_net] %}
+push "route {{ network.address }} {{ network.netmask }}"
+{% endfor %}
+{% endfor %}
+ifconfig-push {{ item.address}} {{ openvpn_netmask }}

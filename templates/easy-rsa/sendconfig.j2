@@ -1,0 +1,35 @@
+#!/bin/bash
+
+USER=$1
+SERVER=$2
+
+QR_CODE="{{ openvpn_authenticator_qr_path }}/${USER}.png"
+
+TTL=$(($(date +%s)+(60*60*{{ openvpn_qrcode_link_validity }})))
+HUMAN_TTL=$(date -d @${TTL} +'%d.%m.%Y %H:%M')
+
+MD5=$(echo -n "${TTL}/qrcodes/${USER}.png {{ openvpn_nginx_link_secret }}" | openssl md5 -binary | openssl base64 | tr +/ -_ | tr -d =)
+
+cat << EOF | /usr/local/bin/sendEmail -f config@{{ openvpn_hostname  }} -t ${USER}@{{ openvpn_domain }} -u "OpenVPN configuration" -a /etc/openvpn/server/${SERVER}/easy-rsa/configs/${USER}/{{ openvpn_hostname }}.ovpn -s {{ openvpn_smtp_server }} -xu {{ openvpn_smtp_user }}  -xp '{{ openvpn_smtp_pass }}'
+
+Dear ${USER},
+
+please see attached configuration file: {{ openvpn_hostname }}.ovpn. Just import this file into your favourite OpenVPN client:
+
+* macOS - tunnelblick or viscosity
+* windows - OpenVPN GUI
+* linux - openvpn / network manager
+
+TOTP QR code for Google Authenticator is https://{{ openvpn_hostname }}/qrcodes/${USER}.png?md5=${MD5}&expires=${TTL}
+
+* link is valid until ${HUMAN_TTL}
+
+Login is ${USER} and password is TOTP code generated in authenticator.
+
+Enjoy!
+
+{{ openvpn_email_signature }}
+
+EOF
+
+touch /etc/openvpn/server/${SERVER}/easy-rsa/configs/${USER}.mail

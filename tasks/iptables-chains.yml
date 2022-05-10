@@ -1,0 +1,28 @@
+---
+- name: Get existing iptables rules
+  command: iptables -n -L
+  changed_when: false
+  register: iptables_rules
+
+- name: Create custom iptables chain
+  command: "iptables -N fwd-{{ item }}"
+  when: "'Chain fwd-{{ item }}' not in iptables_rules.stdout"
+  with_items: "{{ openvpn_networks }}"
+
+- name: Set forward policy
+  iptables:
+    chain: FORWARD
+    policy: DROP
+
+- name: Set state firewall on forward
+  iptables:
+    chain: FORWARD
+    ctstate: [ ESTABLISHED, RELATED ]
+    jump: ACCEPT
+
+- name: Set IP MASQUERADE
+  iptables:
+    source: "{{ openvpn_subnet }}/{{ openvpn_netmask_binary }}"
+    table: nat
+    chain: POSTROUTING
+    jump: MASQUERADE

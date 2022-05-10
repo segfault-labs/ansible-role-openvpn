@@ -1,0 +1,85 @@
+- name: Create client configuration directory
+  file:
+    path: "/etc/openvpn/server/{{ openvpn_name }}/ccd"
+    state: directory
+
+- name: Create client configuration for OpenVPN
+  template:
+    src: openvpn/server/ccd/client.j2
+    dest: "/etc/openvpn/server/{{ openvpn_name }}/ccd/{{ item.name }}"
+    owner: root
+    group: root
+    mode: '0644'
+  with_items: "{{ openvpn_clients[openvpn_name] }}"
+    
+- name: Sign client certificate request
+  command: "./easyrsa --batch build-client-full {{ item.name }} nopass"
+  args:
+    chdir: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/"
+    creates: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/pki/issued/{{ item.name }}.crt"
+  environment:
+    EASYRSA_REQ_CN: "{{ item.name }}"
+  with_items: "{{ openvpn_clients[openvpn_name] }}"
+
+- name: Create client config files directory
+  file:
+    path: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/configs/"
+    state: directory
+
+- name: Create client config files directory per user
+  file:
+    path: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/configs/{{ item.name }}"
+    state: directory
+  with_items: "{{ openvpn_clients[openvpn_name] }}"
+
+- name: Create client config file for OpenVPN client
+  command: "./clientconfig {{ item.name }} {{ openvpn_name }}"
+  args:
+    chdir: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/"
+    creates: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/configs/{{ item.name }}/{{ openvpn_hostname }}.ovpn"
+  with_items: "{{ openvpn_clients[openvpn_name] }}"
+
+- name: Create google-authenticator config file for OpenVPN
+  shell: "/usr/bin/yes y | /usr/bin/google-authenticator -t -d -r3 -R30 -f -l \"OpenVPN Server\" -s {{ openvpn_authenticator_path }}/{{ item.name}}"
+  args:
+    creates: "{{ openvpn_authenticator_path }}/{{ item.name }}"
+  with_items: "{{ openvpn_clients[openvpn_name] }}"
+  tags:
+    - authenticator
+  when: openvpn_authenticator == true
+
+- name: Set rights on authenticator codes
+  file:
+    path: "{{ openvpn_authenticator_path }}/{{ item.name }}"
+    owner: gauth
+    group: gauth
+    mode: 0600
+  with_items: "{{ openvpn_clients[openvpn_name] }}"
+  tags:
+    - authenticator
+  when: openvpn_authenticator == true
+
+- name: Create google-authenticator QR code
+  shell: "qrencode -o {{ openvpn_authenticator_qr_path }}/{{ item.name }}.png -d 300 -s 10 \"otpauth://totp/{{ item.name }}?secret=$(head -1 {{ openvpn_authenticator_path }}/{{ item.name}})&issuer={{ openvpn_hostname }}\""
+  args:
+    creates: "{{ openvpn_authenticator_qr_path }}/{{ item.name }}.png"
+  with_items: "{{ openvpn_clients[openvpn_name] }}"
+  tags:
+    - authenticator
+  when: openvpn_authenticator == true
+
+- name: Create local account for pam.d
+  user:
+    name: "{{ item.name }}"
+    create_home: false
+    shell: /usr/sbin/nologin
+  when: openvpn_authenticator == true
+  with_items: "{{ openvpn_clients[openvpn_name] }}"
+
+- name: Send client config file for OpenVPN
+  command: "./sendconfig {{ item.name }} {{ openvpn_name }}"
+  args:
+    chdir: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/"
+    creates: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/configs/{{ item.name }}.mail"
+  with_items: "{{ openvpn_clients[openvpn_name] }}"
+  when: openvpn_send_config == true

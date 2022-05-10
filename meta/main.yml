@@ -1,0 +1,20 @@
+galaxy_info:
+  author: Jindrich Skupa
+  description: OpenVPN server role with Google Authenticator support
+  company: Enrian Partners a.s.
+
+  issue_tracker_url: https://github.com/enrian/ansible.openvpn/issues
+  license: BSD
+  min_ansible_version: 2.4
+
+  platforms:
+    - name: Debian
+      versions:
+        - buster
+
+  galaxy_tags:
+    - openvpn
+    - system
+    - debian
+
+dependencies: []

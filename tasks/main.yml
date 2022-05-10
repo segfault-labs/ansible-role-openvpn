@@ -1,0 +1,7 @@
+---
+- include: init.yml
+- include: server.yml
+- include: clients.yml
+- include: iptables-chains.yml
+- include: iptables-rules.yml network={{ item }}
+  with_items: "{{ openvpn_networks }}"

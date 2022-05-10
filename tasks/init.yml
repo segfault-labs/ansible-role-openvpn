@@ -1,0 +1,109 @@
+---
+- name: Update repositories cache and install packages
+  apt:
+    name: "{{ packages }}"
+    update_cache: yes
+  vars:
+    packages:
+    - openvpn
+    - libpam-google-authenticator
+    - dnsmasq
+    - rsync
+    - qrencode
+
+- name: Clone easy-rsa repo
+  git:
+    repo: 'https://github.com/OpenVPN/easy-rsa.git'
+    dest: /srv/easy-rsa
+    version: v3.0.8
+
+- name: Turn IPv4 forward on
+  sysctl:
+    name: net.ipv4.ip_forward
+    value: 1
+    state: present
+    reload: true
+    sysctl_set: true
+
+- name: Create Google Authenticator user
+  user:
+    name: gauth
+    comment: Google Authenticator user
+    shell: /bin/false
+    system: true
+    home: /tmp
+    password: '!'
+  tags:
+    - authenticator
+  when: openvpn_authenticator == true
+
+- name: Create pam.d configuration for OpenVPN
+  template:
+    src: pam.d/openvpn.j2
+    dest: /etc/pam.d/openvpn
+    owner: root
+    group: root
+    mode: '0644'
+  tags:
+    - authenticator
+  when: openvpn_authenticator == true
+
+- name: Create google-authenticator config directory
+  file:
+    path: "{{ openvpn_authenticator_path }}"
+    owner: gauth
+    group: gauth
+    mode: 0700
+    state: directory
+  tags:
+    - authenticator
+  when: openvpn_authenticator == true
+
+- name: Create google-authenticator QR code directory
+  file:
+    path: "{{ openvpn_authenticator_qr_path }}"
+    state: directory
+  tags:
+    - authenticator
+  when: openvpn_authenticator == true
+
+- name: Create configuration directory in OpenVPN
+  file:
+    path: "/etc/openvpn/server/{{ openvpn_name }}"
+    state: directory
+
+- name: Create easy-rsa directory in OpenVPN
+  file:
+    path: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa"
+    state: directory
+
+- name: Create easy-rsa/x509-types directory in OpenVPN
+  file:
+    path: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/x509-types"
+    state: directory
+
+- name: Copy easy-rsa scripts
+  copy:
+    src: "/srv/easy-rsa/easyrsa3/{{ item }}"
+    dest: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/{{ item }}"
+    remote_src: yes
+  with_items:
+    - easyrsa
+    - openssl-easyrsa.cnf
+    - x509-types/ca
+    - x509-types/client
+    - x509-types/code-signing
+    - x509-types/COMMON
+    - x509-types/server
+    - x509-types/serverClient
+
+- name: Create easy-rsa directory in OpenVPN
+  file:
+    path: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/easyrsa"
+    mode: 0755
+
+- name: Download sendEmail to send config files via email
+  get_url:
+    url: https://raw.githubusercontent.com/mogaal/sendemail/master/sendEmail
+    dest: /usr/local/bin/sendEmail
+    mode: 755

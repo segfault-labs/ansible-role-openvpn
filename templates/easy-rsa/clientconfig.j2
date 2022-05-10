@@ -1,0 +1,40 @@
+#!/bin/bash
+
+USER=$1
+SERVER=$2
+
+cat << EOF > /etc/openvpn/server/${SERVER}/easy-rsa/configs/${USER}/{{ openvpn_hostname }}.ovpn
+remote {{ openvpn_public_hostname }} {{ openvpn_port }}
+client
+dev tun
+proto tcp
+comp-lzo
+resolv-retry infinite
+auth-retry none
+nobind
+persist-key
+persist-tun
+cipher AES-256-CBC
+tls-cipher TLS-DHE-RSA-WITH-AES-256-GCM-SHA384:TLS-DHE-RSA-WITH-AES-256-CBC-SHA256:TLS-DHE-RSA-WITH-AES-128-GCM-SHA256:TLS-DHE-RSA-WITH-AES-128-CBC-SHA256
+mute-replay-warnings
+remote-cert-tls server
+verb 3
+mute 20
+{% if openvpn_authenticator %}
+auth-user-pass
+{% endif %}
+auth-nocache
+reneg-sec 0
+
+<ca>
+$(cat /etc/openvpn/server/${SERVER}/easy-rsa/pki/ca.crt)
+</ca>
+
+<cert>
+$(cat /etc/openvpn/server/${SERVER}/easy-rsa/pki/issued/"$USER".crt)
+</cert>
+
+<key>
+$(cat /etc/openvpn/server/${SERVER}/easy-rsa/pki/private/"$USER".key)
+</key>
+EOF

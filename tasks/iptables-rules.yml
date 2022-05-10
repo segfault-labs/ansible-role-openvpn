@@ -1,0 +1,21 @@
+- name: Jump to chain on forward
+  iptables:
+    chain: FORWARD
+    destination: "{{ net.address }}/{{ net.mask }}"
+    jump: "fwd-{{ network }}"
+    comment: "{{ net.name }}"
+  loop: "{{ openvpn_networks[network] }}"
+  loop_control:
+    loop_var: net
+
+- name: Allow client access to {{ network }}
+  iptables:
+    chain: "fwd-{{ network }}"
+    source: "{{ client.address }}"
+    jump: ACCEPT
+    comment: "{{ client.name }}"
+  when: network in client.networks
+  loop: "{{ openvpn_clients[openvpn_name] }}"
+  loop_control:
+    loop_var: client
+

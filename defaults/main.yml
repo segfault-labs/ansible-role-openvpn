@@ -1,0 +1,31 @@
+---
+# defaults file for openvpn
+openvpn_name: server
+openvpn_service: "openvpn-server@server"
+openvpn_hostname: vpn.example.com
+openvpn_public_hostname: vpn.example.com
+openvpn_authenticator: true
+openvpn_authenticator_path: /etc/openvpn/google-authenticator
+openvpn_authenticator_qr_path: /var/www/private/qr
+openvpn_qrcode_link_validity: 48
+openvpn_nginx_link_secret: password
+openvpn_email_signature: |
+  DevOps Team
+  devops@example.com
+ca_settings:
+  - key: "set_var EASYRSA_REQ_COUNTRY"
+    value: "CZ"
+  - key: "set_var EASYRSA_REQ_PROVINCE"
+    value: "Czech"
+  - key: "set_var EASYRSA_REQ_CITY"
+    value: "Prague"
+  - key: "set_var EASYRSA_REQ_ORG"
+    value: "Enrian Partners a.s."
+  - key: "set_var EASYRSA_REQ_EMAIL"
+    value: "devops@enrian.com"
+  - key: "set_var EASYRSA_REQ_OU"
+    value: "OpenVPN"
+  - key: "set_var EASYRSA_CA_EXPIRE"
+    value: "3650"
+  - key: "set_var EASYRSA_CERT_EXPIRE"
+    value: "1080"

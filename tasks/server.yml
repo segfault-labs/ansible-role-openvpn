@@ -1,0 +1,67 @@
+- name: Create easy-rsa configuration for OpenVPN
+  template:
+    src: easy-rsa/vars.j2
+    dest: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/vars"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Create script for client config generation
+  template:
+    src: easy-rsa/clientconfig.j2
+    dest: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/clientconfig"
+    owner: root
+    group: root
+    mode: '0744'
+
+- name: Create script for client config sending
+  template:
+    src: easy-rsa/sendconfig.j2
+    dest: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/sendconfig"
+    owner: root
+    group: root
+    mode: '0744'
+  when: openvpn_send_config == true
+
+- name: Init PKI
+  command: "./easyrsa init-pki"
+  args:
+    chdir: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/"
+    creates: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/pki"
+
+- name: Create CA
+  command: "./easyrsa --batch build-ca nopass"
+  args:
+    chdir: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/"
+    creates: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/pki/ca.crt"
+  environment:
+    EASYRSA_REQ_CN: "ca.{{ openvpn_hostname }}"
+
+- name: Create DH
+  command: "./easyrsa --batch gen-dh"
+  args:
+    chdir: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/"
+    creates: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/pki/dh.pem"
+
+- name: Generate CRL
+  command: "./easyrsa --batch gen-crl"
+  args:
+    chdir: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/"
+
+- name: Sign server certificate request
+  command: "./easyrsa --batch build-server-full {{ openvpn_hostname }} nopass"
+  args:
+    chdir: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/"
+    creates: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/pki/issued/{{ openvpn_hostname }}.crt"
+  environment:
+    EASYRSA_REQ_CN: "{{ openvpn_hostname }}"
+  notify: restart openvpn
+
+- name: Create server configuration for OpenVPN
+  template:
+    src: openvpn/server/server.conf.j2
+    dest: "/etc/openvpn/server/{{ openvpn_name }}.conf"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart openvpn
