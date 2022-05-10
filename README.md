@@ -88,6 +88,7 @@ openvpn_clients:
         - vpn-servers
   users:
     - name: jindrich.skupa
+      email: jindrich.skupa
       address: 172.16.1.10
       networks:
         - vpn-servers

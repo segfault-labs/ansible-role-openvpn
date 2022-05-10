@@ -2,6 +2,7 @@
 
 USER=$1
 SERVER=$2
+EMAIL=$3
 
 QR_CODE="{{ openvpn_authenticator_qr_path }}/${USER}.png"
 
@@ -10,7 +11,7 @@ HUMAN_TTL=$(date -d @${TTL} +'%d.%m.%Y %H:%M')
 
 MD5=$(echo -n "${TTL}/qrcodes/${USER}.png {{ openvpn_nginx_link_secret }}" | openssl md5 -binary | openssl base64 | tr +/ -_ | tr -d =)
 
-cat << EOF | /usr/local/bin/sendEmail -f config@{{ openvpn_hostname  }} -t ${USER}@{{ openvpn_domain }} -u "OpenVPN configuration" -a /etc/openvpn/server/${SERVER}/easy-rsa/configs/${USER}/{{ openvpn_hostname }}.ovpn -s {{ openvpn_smtp_server }} -xu {{ openvpn_smtp_user }}  -xp '{{ openvpn_smtp_pass }}'
+cat << EOF | /usr/local/bin/sendEmail -f config@{{ openvpn_hostname  }} -t ${EMAIL} -u "OpenVPN configuration" -a /etc/openvpn/server/${SERVER}/easy-rsa/configs/${USER}/{{ openvpn_hostname }}.ovpn -s {{ openvpn_smtp_server }} -xu {{ openvpn_smtp_user }}  -xp '{{ openvpn_smtp_pass }}'
 
 Dear ${USER},
 

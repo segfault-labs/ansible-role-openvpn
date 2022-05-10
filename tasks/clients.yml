@@ -77,7 +77,7 @@
   with_items: "{{ openvpn_clients[openvpn_name] }}"
 
 - name: Send client config file for OpenVPN
-  command: "./sendconfig {{ item.name }} {{ openvpn_name }}"
+  command: "./sendconfig {{ item.name }} {{ openvpn_name }} {{ item.email }}"
   args:
     chdir: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/"
     creates: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/configs/{{ item.name }}.mail"
