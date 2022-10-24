@@ -10,6 +10,7 @@
     - dnsmasq
     - rsync
     - qrencode
+    - git
 
 - name: Clone easy-rsa repo
   git:

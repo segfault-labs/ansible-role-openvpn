@@ -1,0 +1,33 @@
+server {
+	listen 443 ssl;
+	listen [::]:443 ssl;
+
+	server_name {{ openvpn_hostname }}
+
+	root /var/www/html;
+
+        ssl_certificate /var/lib/dehydrated/certs/{{ openvpn_hostname }}/fullchain.pem;
+        ssl_certificate_key /var/lib/dehydrated/certs/{{ openvpn_hostname }}/privkey.pem;
+
+        location /qrcodes {
+        	alias      /var/www/private/qr;
+	        index     index.html index.htm index.php;
+	        secure_link $arg_md5,$arg_expires;
+	        secure_link_md5 "$secure_link_expires$uri {{ openvpn_nginx_link_secret }}";
+	        if ($secure_link = "") { return 403; }
+	        if ($secure_link = "0") { return 410; }
+        }
+
+	# Add index.php to the list if you are using PHP
+	index index.html index.htm index.nginx-debian.html;
+
+	location / {
+		# First attempt to serve request as file, then
+		# as directory, then fall back to displaying a 404.
+		try_files $uri $uri/ =404;
+	}
+
+        location /.well-known/acme-challenge {
+        	alias /var/lib/dehydrated/acme-challenges/;
+        }
+}

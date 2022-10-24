@@ -1,0 +1,15 @@
+server {
+	listen 80;
+	listen [::]:80;
+
+        server_name {{ openvpn_hostname }};
+
+        location /.well-known/acme-challenge {
+        	alias /var/lib/dehydrated/acme-challenges/;
+		break;
+        }
+
+	location / {
+		return 301 https://$host$request_uri;
+	}
+}
