@@ -1,7 +1,6 @@
 ---
 # defaults file for openvpn
 openvpn_name: server
-openvpn_service: "openvpn-server@server"
 openvpn_hostname: vpn.example.com
 openvpn_public_hostname: vpn.example.com
 openvpn_authenticator: true

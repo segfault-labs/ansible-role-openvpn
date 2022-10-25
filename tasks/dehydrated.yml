@@ -32,5 +32,6 @@
     line: "HOOK=/etc/dehydrated/hook.sh"
 
 - name: Register dehydrated/acme account
-  command: /usr/bin/dehydrated --register --accept-terms && touch /etc/dehydrated/registered
-  creates: /etc/dehydrated/registered
+  shell:
+    cmd: /usr/bin/dehydrated --register --accept-terms && touch /etc/dehydrated/registered
+    creates: /etc/dehydrated/registered
