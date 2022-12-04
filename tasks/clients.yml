@@ -60,7 +60,7 @@
 - name: Delete google-authenticator config file for absent users
   file:
     path: "{{ openvpn_authenticator_path }}/{{ item.name }}"
-    state: "{{ client.state | default('present') }}"
+    state: "{{ client.state | default('file') }}"
   with_items: "{{ openvpn_clients[openvpn_name] }}"
   tags:
     - authenticator
