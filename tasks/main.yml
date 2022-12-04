@@ -7,6 +7,6 @@
 - include: iptables-rules.yml network={{ item }}
   with_items: "{{ openvpn_networks }}"
 - include: nginx.yml
-  when: "{{ openvpn_manage_nginx_vhost }}" == "true"
+  when: openvpn_manage_nginx_vhost == true
 - include: dehydrated.yml
-  when: "{{ openvpn_manage_dehydrated }}" == "true"
+  when: openvpn_manage_dehydrated == true
