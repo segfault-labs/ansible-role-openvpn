@@ -21,6 +21,15 @@
     EASYRSA_REQ_CN: "{{ item.name }}"
   with_items: "{{ openvpn_clients[openvpn_name] }}"
 
+- name: Revoke client certificate
+  command: "./easyrsa --batch revoke {{ item.name }}"
+  args:
+    chdir: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/"
+    creates: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/pki/issued/{{ item.name }}.revoked"
+  environment:
+    EASYRSA_REQ_CN: "{{ item.name }}"
+  with_items: "{{ openvpn_clients[openvpn_name] | selectattr('state', 'equalto', 'absent')}}"
+
 - name: Create client config files directory
   file:
     path: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/configs/"
@@ -43,6 +52,15 @@
   shell: "/usr/bin/yes y | /usr/bin/google-authenticator -t -d -r3 -R30 -f -l \"OpenVPN Server\" -s {{ openvpn_authenticator_path }}/{{ item.name}}"
   args:
     creates: "{{ openvpn_authenticator_path }}/{{ item.name }}"
+  with_items: "{{ openvpn_clients[openvpn_name] }}"
+  tags:
+    - authenticator
+  when: openvpn_authenticator == true
+
+- name: Delete google-authenticator config file for absent users
+  file:
+    path: "{{ openvpn_authenticator_path }}/{{ item.name }}"
+    state: "{{ client.state | default('present') }}"
   with_items: "{{ openvpn_clients[openvpn_name] }}"
   tags:
     - authenticator
@@ -73,6 +91,7 @@
     name: "{{ item.name }}"
     create_home: false
     shell: /usr/sbin/nologin
+    state: "{{ client.state | default('present') }}"
   when: openvpn_authenticator == true
   with_items: "{{ openvpn_clients[openvpn_name] }}"
 
