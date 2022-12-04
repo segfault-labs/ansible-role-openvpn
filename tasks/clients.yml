@@ -28,7 +28,7 @@
     creates: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/pki/issued/{{ item.name }}.revoked"
   environment:
     EASYRSA_REQ_CN: "{{ item.name }}"
-  with_items: "{{ openvpn_clients[openvpn_name] | selectattr('state', 'equalto', 'absent')}}"
+  with_items: "{{ openvpn_clients[openvpn_name] | selectattr('state','defined') | selectattr('state', '==', 'absent') }}"
 
 - name: Create client config files directory
   file:
