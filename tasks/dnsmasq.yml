@@ -1,0 +1,6 @@
+- name: Configure dnsmasq for all interfaces
+  lineinfile:
+    path: /etc/selinux/config
+    regexp: '.*bind-interfaces.*'
+    line: bind-interfaces
+

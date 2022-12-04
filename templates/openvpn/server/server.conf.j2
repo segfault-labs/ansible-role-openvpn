@@ -8,8 +8,6 @@ crl-verify /etc/openvpn/server/{{ openvpn_name}}/easy-rsa/pki/crl.pem
 proto tcp-server
 port {{ openvpn_port }}
 tls-server
-compress lz4-v2
-push "compress lz4-v2"
 group nogroup
 user nobody
 log-append /var/log/openvpn-server-{{ openvpn_name}}.log

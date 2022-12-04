@@ -1,7 +1,6 @@
 ---
 # defaults file for openvpn
 openvpn_name: server
-openvpn_service: "openvpn-server@server"
 openvpn_hostname: vpn.example.com
 openvpn_public_hostname: vpn.example.com
 openvpn_authenticator: true
@@ -12,6 +11,10 @@ openvpn_nginx_link_secret: password
 openvpn_email_signature: |
   DevOps Team
   devops@example.com
+
+openvpn_manage_nginx_vhost: "true"
+openvpn_manage_dehydrated: "true"
+
 ca_settings:
   - key: "set_var EASYRSA_REQ_COUNTRY"
     value: "CZ"

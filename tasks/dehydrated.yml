@@ -1,0 +1,37 @@
+- name: Install dehydrated
+  apt:
+    name: dehydrated
+    update_cache: yes
+
+- name: Add domain to dehydrated
+  lineinfile:
+    path: /etc/dehydrated/domains.txt
+    regexp: '^{{ openvpn_hostname }}$'
+    line: "{{ openvpn_hostname }}"
+  notify: 'update certificates'
+
+- name: Add dehydrated into cron
+  cron:
+    minute: 30
+    hour: 23
+    name: dehydrated
+    job: "/usr/bin/dehydrated --cron"
+
+- name: Create dehydrated hooks
+  template:
+    src: templates/dehydrated/hook.sh.j2
+    dest: "/etc/dehydrated/hook.sh"
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Set dehydrated hook
+  lineinfile:
+    path: /etc/dehydrated/config
+    regexp: '^HOOK=.*'
+    line: "HOOK=/etc/dehydrated/hook.sh"
+
+- name: Register dehydrated/acme account
+  shell:
+    cmd: /usr/bin/dehydrated --register --accept-terms && touch /etc/dehydrated/registered
+    creates: /etc/dehydrated/registered
