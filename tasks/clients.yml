@@ -49,7 +49,7 @@
   with_items: "{{ openvpn_clients[openvpn_name] }}"
 
 - name: Create google-authenticator config file for OpenVPN
-  shell: "/usr/bin/yes y | /usr/bin/google-authenticator -t -d -r3 -R30 -f -l \"OpenVPN Server\" -s {{ openvpn_authenticator_path }}/{{ item.name}}"
+  shell: "/usr/bin/yes y | /usr/bin/google-authenticator -C -t -d -r3 -R30 -f -l \"OpenVPN Server\" -s {{ openvpn_authenticator_path }}/{{ item.name}}"
   args:
     creates: "{{ openvpn_authenticator_path }}/{{ item.name }}"
   with_items: "{{ openvpn_clients[openvpn_name] }}"
