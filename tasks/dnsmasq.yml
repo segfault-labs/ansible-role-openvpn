@@ -1,6 +1,4 @@
-- name: Configure dnsmasq for all interfaces
-  lineinfile:
-    path: /etc/dnsmasq.conf
-    regexp: '.*bind-interfaces.*'
-    line: 'listen-address={{ openvpn_internal_address }}'
-
+- name: Configure dnsmasq for vpn interfaces
+  template:
+    src: templates/dnsmasq/dnsmasq.conf
+    dest: /etc/dnsmasq.conf
