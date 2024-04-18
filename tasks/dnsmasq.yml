@@ -2,5 +2,5 @@
   lineinfile:
     path: /etc/dnsmasq.conf
     regexp: '.*bind-interfaces.*'
-    line: bind-interfaces
+    line: 'listen-address={{ openvpn_internal_address }}'
 
