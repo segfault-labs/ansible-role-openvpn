@@ -1,12 +1,12 @@
 ---
-- include: init.yml
-- include: server.yml
-- include: dnsmasq.yml
-- include: clients.yml
-- include: iptables-chains.yml
-- include: iptables-rules.yml network={{ item }}
+- include_tasks: init.yml
+- include_tasks: server.yml
+- include_tasks: dnsmasq.yml
+- include_tasks: clients.yml
+- include_tasks: iptables-chains.yml
+- include_tasks: iptables-rules.yml network={{ item }}
   with_items: "{{ openvpn_networks }}"
-- include: nginx.yml
+- include_tasks: nginx.yml
   when: openvpn_manage_nginx_vhost == true
-- include: dehydrated.yml
+- include_tasks: dehydrated.yml
   when: openvpn_manage_dehydrated == true
