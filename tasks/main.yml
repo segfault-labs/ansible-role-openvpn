@@ -4,7 +4,9 @@
 - include_tasks: dnsmasq.yml
 - include_tasks: clients.yml
 - include_tasks: iptables-chains.yml
-- include_tasks: iptables-rules.yml network={{ item }}
+- include_tasks: iptables-rules.yml
+  vars:
+    network: "{{ item }}"
   with_items: "{{ openvpn_networks }}"
 - include_tasks: nginx.yml
   when: openvpn_manage_nginx_vhost == true
