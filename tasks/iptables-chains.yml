@@ -6,7 +6,7 @@
 
 - name: Create custom iptables chain
   command: "iptables -N fwd-{{ item }}"
-  when: "'Chain fwd-{{ item }}' not in iptables_rules.stdout"
+  when: "'Chain fwd-' + item not in iptables_rules.stdout"
   with_items: "{{ openvpn_networks }}"
 
 - name: Set forward policy

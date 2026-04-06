@@ -1,6 +1,11 @@
-- name: Configure dnsmasq for all interfaces
-  lineinfile:
-    path: /etc/selinux/config
-    regexp: '.*bind-interfaces.*'
-    line: bind-interfaces
+- name: Configure dnsmasq for vpn interfaces
+  template:
+    src: templates/dnsmasq/dnsmasq.conf
+    dest: /etc/dnsmasq.conf
+  notify: restart dnsmasq
 
+- name: Enable and start dnsmasq
+  service:
+    name: dnsmasq
+    enabled: yes
+    state: started

@@ -14,6 +14,7 @@
     source: "{{ client.address }}"
     jump: ACCEPT
     comment: "{{ client.name }}"
+    state: "{{ client.state | default('present') }}"
   when: network in client.networks
   loop: "{{ openvpn_clients[openvpn_name] }}"
   loop_control:
