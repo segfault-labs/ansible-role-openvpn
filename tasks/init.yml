@@ -16,7 +16,7 @@
   git:
     repo: 'https://github.com/OpenVPN/easy-rsa.git'
     dest: /srv/easy-rsa
-    version: v3.0.8
+    version: v3.1.7
 
 - name: Turn IPv4 forward on
   sysctl:
