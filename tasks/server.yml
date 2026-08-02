@@ -48,13 +48,16 @@
   args:
     chdir: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/"
 
+# No EASYRSA_REQ_CN here: build-server-full takes the common name as its
+# positional argument, and easy-rsa 3.1+ rejects setting it externally with
+# "Option conflict: 'build-server-full' does not support setting an external
+# commonName". 3.0.8 tolerated it. build-ca above still needs it - that
+# subcommand has no positional CN.
 - name: Sign server certificate request
   command: "./easyrsa --batch build-server-full {{ openvpn_hostname }} nopass"
   args:
     chdir: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/"
     creates: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/pki/issued/{{ openvpn_hostname }}.crt"
-  environment:
-    EASYRSA_REQ_CN: "{{ openvpn_hostname }}"
   notify: restart openvpn
 
 - name: Create server configuration for OpenVPN

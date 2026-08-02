@@ -12,13 +12,15 @@
     mode: '0644'
   with_items: "{{ openvpn_clients[openvpn_name] }}"
     
+# Same as the server certificate in server.yml: build-client-full takes the
+# common name positionally, and easy-rsa 3.1+ errors out if EASYRSA_REQ_CN is
+# also set. The CN is unchanged either way - it was being set to item.name,
+# which is exactly what the positional argument supplies.
 - name: Sign client certificate request
   command: "./easyrsa --batch build-client-full {{ item.name }} nopass"
   args:
     chdir: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/"
     creates: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/pki/issued/{{ item.name }}.crt"
-  environment:
-    EASYRSA_REQ_CN: "{{ item.name }}"
   with_items: "{{ openvpn_clients[openvpn_name] }}"
 
 #- name: Revoke client certificate
