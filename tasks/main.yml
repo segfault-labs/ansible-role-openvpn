@@ -8,6 +8,11 @@
   vars:
     network: "{{ item }}"
   with_items: "{{ openvpn_networks }}"
+# ponytail: saves the whole ruleset incl. Docker's chains; Docker re-checks its
+# rules on start, split them out if duplicates ever show up after a reboot
+- name: Persist iptables rules across reboots
+  command: netfilter-persistent save
+  changed_when: false
 - include_tasks: nginx.yml
   when: openvpn_manage_nginx_vhost == true
 - include_tasks: dehydrated.yml
