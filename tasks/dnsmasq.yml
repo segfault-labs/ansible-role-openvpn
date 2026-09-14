@@ -2,3 +2,4 @@
   template:
     src: templates/dnsmasq/dnsmasq.conf
     dest: /etc/dnsmasq.conf
+  notify: restart dnsmasq

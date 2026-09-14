@@ -11,6 +11,7 @@
     - rsync
     - qrencode
     - git
+    - iptables-persistent
 
 - name: Clone easy-rsa repo
   git:
