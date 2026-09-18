@@ -98,7 +98,19 @@ openvpn_clients:
       address: 172.16.1.11
       networks:
         - vpn-servers
+    - name: former.colleague
+      address: 172.16.1.12
+      state: absent
+      networks:
+        - vpn-servers
 ```
+
+Offboarding: set `state: absent` on the client and keep the entry until the
+play has run. The role then revokes the certificate and regenerates the CRL,
+and removes the client's iptables ACCEPT rules, ccd file, generated `.ovpn`
+config (plus the `.mail` marker), google-authenticator secret and QR code, and
+the local PAM account. Deleting the entry outright skips all of that and
+leaves a working certificate behind.
 
 TODO
 ----

@@ -3,6 +3,20 @@
     path: "/etc/openvpn/server/{{ openvpn_name }}/ccd"
     state: directory
 
+# A client with `state: absent` is offboarded: its certificate is revoked and
+# every artefact the role created for it is removed. Everything else is
+# `present`. Split the list once so the tasks below do not each re-derive it.
+- name: Split clients by state
+  set_fact:
+    openvpn_clients_present: >-
+      {{ openvpn_clients[openvpn_name]
+         | rejectattr('state', 'defined') | list
+         + openvpn_clients[openvpn_name]
+         | selectattr('state', 'defined') | rejectattr('state', '==', 'absent') | list }}
+    openvpn_clients_absent: >-
+      {{ openvpn_clients[openvpn_name]
+         | selectattr('state', 'defined') | selectattr('state', '==', 'absent') | list }}
+
 - name: Create client configuration for OpenVPN
   template:
     src: openvpn/server/ccd/client.j2
@@ -10,8 +24,8 @@
     owner: root
     group: root
     mode: '0644'
-  with_items: "{{ openvpn_clients[openvpn_name] }}"
-    
+  with_items: "{{ openvpn_clients_present }}"
+
 # Same as the server certificate in server.yml: build-client-full takes the
 # common name positionally, and easy-rsa 3.1+ errors out if EASYRSA_REQ_CN is
 # also set. The CN is unchanged either way - it was being set to item.name,
@@ -21,16 +35,42 @@
   args:
     chdir: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/"
     creates: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/pki/issued/{{ item.name }}.crt"
-  with_items: "{{ openvpn_clients[openvpn_name] }}"
+  with_items: "{{ openvpn_clients_present }}"
 
-#- name: Revoke client certificate
-#  command: "./easyrsa --batch revoke {{ item.name }}"
-#  args:
-#    chdir: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/"
-#    creates: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/pki/issued/{{ item.name }}.revoked"
-#  environment:
-#    EASYRSA_REQ_CN: "{{ item.name }}"
-#  with_items: "{{ openvpn_clients[openvpn_name] | selectattr('state','defined') | selectattr('state', '==', 'absent') }}"
+# easy-rsa 3.1 moves a revoked certificate out of pki/issued into
+# pki/revoked/certs_by_serial, so the issued file doubles as the "not yet
+# revoked" marker. Certificates that already expired and were re-issued keep
+# their stale V rows in index.txt; only the current one is revoked here.
+- name: Revoke client certificate of absent clients
+  command: "./easyrsa --batch revoke {{ item.name }}"
+  args:
+    chdir: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/"
+    removes: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/pki/issued/{{ item.name }}.crt"
+  with_items: "{{ openvpn_clients_absent }}"
+  register: openvpn_revoked_clients
+
+# server.yml already regenerated the CRL earlier in this run, before the
+# revocations above existed. Without this OpenVPN would keep accepting the
+# revoked certificate until the nightly `refresh crl` cron. chmod for the same
+# reason as in server.yml: easyrsa rewrites the file 0600 and the daemon runs
+# as nobody.
+- name: Regenerate the CRL after revocations  # noqa: no-handler
+  command: "./easyrsa --batch gen-crl"
+  args:
+    chdir: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/"
+  when: openvpn_revoked_clients is changed
+
+- name: Make the regenerated CRL readable by the unprivileged OpenVPN process  # noqa: no-handler
+  file:
+    path: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/pki/crl.pem"
+    mode: "0644"
+  when: openvpn_revoked_clients is changed
+
+- name: Remove client configuration of absent clients
+  file:
+    path: "/etc/openvpn/server/{{ openvpn_name }}/ccd/{{ item.name }}"
+    state: absent
+  with_items: "{{ openvpn_clients_absent }}"
 
 - name: Create client config files directory
   file:
@@ -41,29 +81,44 @@
   file:
     path: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/configs/{{ item.name }}"
     state: directory
-  with_items: "{{ openvpn_clients[openvpn_name] }}"
+  with_items: "{{ openvpn_clients_present }}"
 
 - name: Create client config file for OpenVPN client
   command: "./clientconfig {{ item.name }} {{ openvpn_name }}"
   args:
     chdir: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/"
     creates: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/configs/{{ item.name }}/{{ openvpn_hostname }}.ovpn"
-  with_items: "{{ openvpn_clients[openvpn_name] }}"
+  with_items: "{{ openvpn_clients_present }}"
+
+# The .mail marker goes too, so a client that is later re-added gets a fresh
+# config and a fresh mail instead of being silently skipped by `creates:`.
+- name: Remove generated client config of absent clients
+  file:
+    path: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/configs/{{ item.0.name }}{{ item.1 }}"
+    state: absent
+  loop: "{{ openvpn_clients_absent | product(['', '.mail']) | list }}"
+  loop_control:
+    label: "{{ item.0.name }}{{ item.1 }}"
 
 - name: Create google-authenticator config file for OpenVPN
   shell: "/usr/bin/yes y | /usr/bin/google-authenticator -C -t -d -r3 -R30 -f -l \"OpenVPN Server\" -s {{ openvpn_authenticator_path }}/{{ item.name}}"
   args:
     creates: "{{ openvpn_authenticator_path }}/{{ item.name }}"
-  with_items: "{{ openvpn_clients[openvpn_name] }}"
+  with_items: "{{ openvpn_clients_present }}"
   tags:
     - authenticator
   when: openvpn_authenticator == true
 
-- name: Delete google-authenticator config file for absent users
+- name: Delete google-authenticator config file and QR code of absent clients
   file:
-    path: "{{ openvpn_authenticator_path }}/{{ item.name }}"
-    state: "{{ client.state | default('file') }}"
-  with_items: "{{ openvpn_clients[openvpn_name] }}"
+    path: "{{ item.1.dir }}/{{ item.0.name }}{{ item.1.suffix }}"
+    state: absent
+  loop: >-
+    {{ openvpn_clients_absent | product([
+         {'dir': openvpn_authenticator_path, 'suffix': ''},
+         {'dir': openvpn_authenticator_qr_path, 'suffix': '.png'}]) | list }}
+  loop_control:
+    label: "{{ item.1.dir }}/{{ item.0.name }}{{ item.1.suffix }}"
   tags:
     - authenticator
   when: openvpn_authenticator == true
@@ -74,7 +129,7 @@
     owner: gauth
     group: gauth
     mode: 0600
-  with_items: "{{ openvpn_clients[openvpn_name] }}"
+  with_items: "{{ openvpn_clients_present }}"
   tags:
     - authenticator
   when: openvpn_authenticator == true
@@ -83,17 +138,19 @@
   shell: "qrencode -o {{ openvpn_authenticator_qr_path }}/{{ item.name }}.png -d 300 -s 10 \"otpauth://totp/{{ item.name }}?secret=$(head -1 {{ openvpn_authenticator_path }}/{{ item.name}})&issuer={{ openvpn_hostname }}\""
   args:
     creates: "{{ openvpn_authenticator_qr_path }}/{{ item.name }}.png"
-  with_items: "{{ openvpn_clients[openvpn_name] }}"
+  with_items: "{{ openvpn_clients_present }}"
   tags:
     - authenticator
   when: openvpn_authenticator == true
 
-- name: Create local account for pam.d
+# The PAM account of an absent client is removed as well; with it gone the
+# auth-pam plugin rejects the login even before the TOTP secret is checked.
+- name: Manage local account for pam.d
   user:
     name: "{{ item.name }}"
     create_home: false
     shell: /usr/sbin/nologin
-    state: "{{ client.state | default('present') }}"
+    state: "{{ item.state | default('present') }}"
   when: openvpn_authenticator == true
   with_items: "{{ openvpn_clients[openvpn_name] }}"
 
@@ -102,5 +159,5 @@
   args:
     chdir: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/"
     creates: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/configs/{{ item.name }}.mail"
-  with_items: "{{ openvpn_clients[openvpn_name] }}"
+  with_items: "{{ openvpn_clients_present }}"
   when: openvpn_send_config == true
