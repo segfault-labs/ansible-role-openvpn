@@ -8,6 +8,7 @@
   vars:
     network: "{{ item }}"
   with_items: "{{ openvpn_networks }}"
+- include_tasks: remove-clients.yml
 # ponytail: saves the whole ruleset incl. Docker's chains; Docker re-checks its
 # rules on start, split them out if duplicates ever show up after a reboot
 - name: Persist iptables rules across reboots

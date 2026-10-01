@@ -119,3 +119,24 @@ Author Information
 ------------------
 
 Jindrich Skupa
+
+Removing a client
+-----------------
+
+Delete the client from `openvpn_clients` and apply the role. Any client that
+still has a `ccd` file on the server but is no longer listed is torn down:
+
+* certificate revoked and published in the CRL
+* its iptables rules deleted from the `fwd-*` chains
+* local account, TOTP secret, QR code, generated `.ovpn` and the
+  "config sent" marker removed
+
+OpenVPN is not restarted, so a client that is connected at that moment stays
+connected until its next TLS renegotiation (`reneg-sec`, 1 hour by default).
+
+Adding the same name back in a later run creates it from scratch: new
+certificate, new TOTP secret, new welcome mail. Renaming a client counts as
+removing the old name and adding the new one.
+
+The role refuses to run if the client list for `openvpn_name` is empty while
+the server still has clients, so a typo cannot revoke everyone.
