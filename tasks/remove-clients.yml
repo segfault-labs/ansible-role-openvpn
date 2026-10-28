@@ -1,0 +1,87 @@
+# A client is "removed" when it still has a ccd file on the server but is no
+# longer in openvpn_clients. Everything the role created for it is torn down so
+# the same name can be added again later and gets a fresh certificate, TOTP
+# secret and welcome mail. The ccd file goes last: a run that fails halfway
+# still sees the client as removed and retries on the next apply.
+- name: List clients present on the server
+  find:
+    paths: "/etc/openvpn/server/{{ openvpn_name }}/ccd"
+    file_type: file
+  register: openvpn_ccd_files
+
+- name: Work out which clients were removed from openvpn_clients
+  set_fact:
+    openvpn_removed_clients: >-
+      {{ openvpn_ccd_files.files | map(attribute='path') | map('basename')
+         | difference(openvpn_clients[openvpn_name] | map(attribute='name')) | list }}
+
+# Revocation cannot be undone, so an empty or mistyped client list must not
+# take every certificate with it.
+- name: Refuse to remove every client at once
+  assert:
+    that: openvpn_clients[openvpn_name] | length > 0 or openvpn_removed_clients | length == 0
+    fail_msg: >-
+      openvpn_clients[{{ openvpn_name }}] is empty but the server still has
+      clients: {{ openvpn_removed_clients | join(', ') }}. Refusing to revoke all of them.
+
+# easyrsa moves the cert, key and request aside on revoke; the rm covers older
+# releases and leftovers so build-client-full accepts the name again.
+- name: Revoke certificates of removed clients
+  shell: |
+    set -e
+    if [ -f pki/issued/{{ item | quote }}.crt ]; then
+      ./easyrsa --batch revoke {{ item | quote }}
+    fi
+    rm -f pki/issued/{{ item | quote }}.crt pki/private/{{ item | quote }}.key \
+      pki/reqs/{{ item | quote }}.req pki/inline/{{ item | quote }}.inline \
+      pki/inline/private/{{ item | quote }}.inline
+  args:
+    chdir: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/"
+  loop: "{{ openvpn_removed_clients }}"
+
+# OpenVPN re-reads the CRL on each handshake, so no restart: a removed client
+# that is still connected is dropped at its next renegotiation (reneg-sec,
+# 1 hour by default). chmod because easyrsa rewrites the file 0600.
+- name: Publish the revocations in the CRL
+  shell: "./easyrsa --batch gen-crl && chmod 0644 pki/crl.pem"
+  args:
+    chdir: "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/"
+  when: openvpn_removed_clients | length > 0
+
+# The client's address is gone from the vars, so its rules are found by the
+# comment iptables-rules.yml sets (the client name) and replayed as deletes.
+- name: Remove iptables rules of removed clients
+  shell: |
+    set -e
+    iptables -S | awk -v name={{ item | quote }} '
+      $1 == "-A" && $2 ~ /^fwd-/ {
+        gsub(/"/, "")
+        for (i = 3; i < NF; i++)
+          if ($i == "--comment" && $(i + 1) == name) { $1 = "-D"; print; break }
+      }' | while read -r rule; do
+        iptables $rule
+        echo "$rule"
+      done
+  register: openvpn_removed_rules
+  changed_when: openvpn_removed_rules.stdout != ""
+  loop: "{{ openvpn_removed_clients }}"
+
+- name: Remove local accounts of removed clients
+  user:
+    name: "{{ item }}"
+    state: absent
+  when: openvpn_authenticator == true
+  loop: "{{ openvpn_removed_clients }}"
+
+- name: Remove files of removed clients
+  file:
+    path: "{{ item.1 | replace('CLIENT', item.0) }}"
+    state: absent
+  loop: "{{ openvpn_removed_clients | product(openvpn_client_artifacts) | list }}"
+  vars:
+    openvpn_client_artifacts:
+      - "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/configs/CLIENT"
+      - "/etc/openvpn/server/{{ openvpn_name }}/easy-rsa/configs/CLIENT.mail"
+      - "{{ openvpn_authenticator_path }}/CLIENT"
+      - "{{ openvpn_authenticator_qr_path }}/CLIENT.png"
+      - "/etc/openvpn/server/{{ openvpn_name }}/ccd/CLIENT"
