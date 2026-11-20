@@ -57,6 +57,9 @@
     group: gauth
     mode: 0600
   with_items: "{{ openvpn_clients[openvpn_name] }}"
+  # In check mode the shell task above does not create the file for a new
+  # client, so this would fail the whole dry run. A real run is unaffected.
+  ignore_errors: "{{ ansible_check_mode }}"
   tags:
     - authenticator
   when: openvpn_authenticator == true
